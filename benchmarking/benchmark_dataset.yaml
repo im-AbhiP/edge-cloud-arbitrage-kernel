@@ -1,0 +1,56 @@
+benchmarks:
+  - id: "bench_01_simple_summary"
+    name: "Simple News Summary"
+    prompt: "Summarize the key points: The EU announced new AI regulations requiring companies to classify AI applications by risk level. High-risk systems need conformity assessments. Takes effect 2026."
+    task_type: "simple_summary"
+    expected_tokens: 150
+    max_tokens: 300
+
+  - id: "bench_02_deep_reasoning"
+    name: "Edge vs Cloud Tradeoff Analysis"
+    prompt: "Analyze the technical and economic tradeoffs between running AI inference on edge devices versus cloud. Consider latency, cost, privacy, model capability, and scaling."
+    task_type: "deep_research"
+    expected_tokens: 1200
+    max_tokens: 2000
+
+  - id: "bench_03_code_review"
+    name: "Python Code Review"
+    prompt: "Review this code for bugs and improvements:\n\ndef process_data(items):\n    results = []\n    for i in range(len(items)):\n        if items[i]['status'] == 'active':\n            results.append(items[i]['value'] * 2)\n    total = sum(results)\n    average = total / len(results)\n    return {'results': results, 'total': total, 'average': average}"
+    task_type: "code_review"
+    expected_tokens: 600
+    max_tokens: 1000
+
+  - id: "bench_04_planning"
+    name: "Migration Plan"
+    prompt: "Create a plan for migrating a monolithic Python app to microservices on Kubernetes. Include phases, risks, and timeline."
+    task_type: "planning"
+    expected_tokens: 1000
+    max_tokens: 1500
+
+  - id: "bench_05_quick_qa"
+    name: "Quick Factual Question"
+    prompt: "What is the difference between TCP and UDP? Answer in 2-3 sentences."
+    task_type: "quick_qa"
+    expected_tokens: 80
+    max_tokens: 200
+
+  - id: "bench_06_creative"
+    name: "Technical Blog Intro"
+    prompt: "Write the opening paragraph of a blog post titled 'Why Edge AI Will Eat Cloud AI by 2028'. Provocative but grounded."
+    task_type: "creative_writing"
+    expected_tokens: 300
+    max_tokens: 500
+
+  - id: "bench_07_data_analysis"
+    name: "Performance Data Interpretation"
+    prompt: "Given: Edge avg latency=1200ms, Cloud avg latency=800ms, Edge cost=$0, Cloud cost=$0.003/call, Edge quality=7.2/10, Cloud quality=8.8/10, Monthly volume=3000. Recommend an optimal routing strategy."
+    task_type: "data_analysis"
+    expected_tokens: 800
+    max_tokens: 1200
+
+  - id: "bench_08_long_summary"
+    name: "Transformer Architecture Summary"
+    prompt: "Summarize the transformer architecture in deep learning. Cover attention, positional encoding, multi-head attention, encoder-decoder structure, and differences from RNNs."
+    task_type: "long_summarization"
+    expected_tokens: 1200
+    max_tokens: 2000

@@ -1,0 +1,56 @@
+# Prompt Registry
+# WHY: Every prompt has an estimated token count. This lets the router
+# predict cost BEFORE making a call — the core of "arbitrage."
+#
+# WHAT IS YAML?
+# YAML is a human-readable data format (like JSON but cleaner).
+# Indentation matters (like Python). Use spaces, NOT tabs.
+
+prompts:
+  simple_summary:
+    name: "Simple Summary"
+    template: "Summarize the following text in 3-5 bullet points:\n\n{text}"
+    expected_tokens: 200
+    task_type: "simple_summary"
+
+  deep_research:
+    name: "Deep Research Analysis"
+    template: "Provide a comprehensive analysis of {topic}. Include: key concepts, current state of the art, challenges, and future directions."
+    expected_tokens: 1500
+    task_type: "deep_research"
+
+  code_review:
+    name: "Code Review"
+    template: "Review the following code for bugs, performance issues, security concerns, and style improvements.\n\nCode:\n```\n{code}\n```"
+    expected_tokens: 800
+    task_type: "code_review"
+
+  planning:
+    name: "Project Planning"
+    template: "Create a detailed execution plan for: {objective}. Include phases, milestones, risks, and resource requirements."
+    expected_tokens: 1000
+    task_type: "planning"
+
+  quick_qa:
+    name: "Quick Q&A"
+    template: "Answer concisely: {question}"
+    expected_tokens: 150
+    task_type: "quick_qa"
+
+  creative_writing:
+    name: "Creative Writing"
+    template: "Write a {format} about {topic}. Tone: {tone}. Length: {length}."
+    expected_tokens: 600
+    task_type: "creative_writing"
+
+  data_analysis:
+    name: "Data Analysis"
+    template: "Analyze the following data and provide insights, trends, and recommendations:\n\n{data}"
+    expected_tokens: 800
+    task_type: "data_analysis"
+
+  long_summarization:
+    name: "Long Document Summarization"
+    template: "Summarize the following long document. Preserve key arguments, evidence, and conclusions.\n\n{document}"
+    expected_tokens: 1200
+    task_type: "long_summarization"
