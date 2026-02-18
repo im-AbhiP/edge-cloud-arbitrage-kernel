@@ -6,3 +6,4 @@ data/logs/*
 *.db
 .DS_Store
 .idea/
+benchmarking/reports/*.csv
