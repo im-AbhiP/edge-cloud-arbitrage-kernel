@@ -340,7 +340,7 @@ The Streamlit dashboard provides five key views:
 📈 Cumulative Cost — Line chart comparing hybrid cost vs. cloud-only cost over time
 🔒 Governance Events — Count of privacy and budget enforcement actions
 Launch with: streamlit run dashboard/streamlit_app.py
-![Dashboard Screenshot](./reports/dashboard_screenshot.png)
+[Dashboard Screenshot](./reports/dashboard_screenshot.png)
 Roadmap
 ✅ v1 (Current)
  Model client abstraction (Ollama + Gemini, 6 models)
@@ -375,4 +375,4 @@ This project is licensed under the MIT License — see the LICENSE file for deta
 Author
 Abhishek Senior Product Manager @ AMD | MBA
 Building at the intersection of AI infrastructure, edge compute, and hybrid cloud governance.
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue)](https://linkedin.com/in/abhishekhpatil) [![GitHub](https://img.shields.io/badge/GitHub-Follow-black)](https://github.com/im-AbhiP)
+[[LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue)](https://linkedin.com/in/abhishekhpatil) [[GitHub](https://img.shields.io/badge/GitHub-Follow-black)](https://github.com/im-AbhiP)
