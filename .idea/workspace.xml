@@ -6,12 +6,15 @@
   <component name="ChangeListManager">
     <list default="true" id="4d497566-7c14-4a48-a3b8-86c3f87b5a22" name="Changes" comment="Add requirements.txt for 3.14.3 environment">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="EmbeddingIndexingInfo">
+    <option name="cachedIndexableFilesCount" value="38" />
+    <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
@@ -164,7 +167,7 @@
       <updated>1771095103827</updated>
       <workItem from="1771095104862" duration="7500000" />
       <workItem from="1771146703402" duration="198000" />
-      <workItem from="1771146910180" duration="9891000" />
+      <workItem from="1771146910180" duration="10615000" />
     </task>
     <task id="LOCAL-00001" summary="Add requirements.txt for 3.14.3 environment">
       <option name="closed" value="true" />

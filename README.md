@@ -340,7 +340,7 @@ The Streamlit dashboard provides five key views:
 📈 Cumulative Cost — Line chart comparing hybrid cost vs. cloud-only cost over time
 🔒 Governance Events — Count of privacy and budget enforcement actions
 Launch with: streamlit run dashboard/streamlit_app.py
-![Dashboard Screenshot](reports/dashboard_screenshot.png)
+![Dashboard Screenshot](./reports/dashboard_screenshot.png)
 Roadmap
 ✅ v1 (Current)
  Model client abstraction (Ollama + Gemini, 6 models)
