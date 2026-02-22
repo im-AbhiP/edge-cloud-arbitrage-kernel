@@ -1,147 +1,225 @@
 # 🧠 Edge-Cloud AI Arbitrage Kernel
 
-**A Hybrid Compute Governance Engine for Cost-Aware, Privacy-Aware LLM Orchestration**
+**A Deterministic Governance Engine for Cost-Aware, Privacy-Safe LLM Workload Routing**
 
-[![Python 3.14+](https://img.shields.io/badge/python-3.14%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.14+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Built with Ollama](https://img.shields.io/badge/Edge-Ollama-orange.svg)](https://ollama.com/)
 [![Cloud: Gemini](https://img.shields.io/badge/Cloud-Gemini%20API-4285F4.svg)](https://ai.google.dev/)
 
----
+______________________________________________________________________
 
-## What Is This?
+## 📋 Table of Contents
 
-A Python-based runtime that **dynamically allocates AI inference workloads between local edge compute (Ollama on Apple Silicon) and cloud APIs (Google Gemini)**, making routing decisions based on explicit policies for **cost, latency, privacy, and task complexity**.
+- [What Is This?](#-what-is-this)
+- [Why Does This Exist?](#-why-does-this-exist)
+- [The Core Innovation: A Democratic Council](#-the-core-innovation-a-democratic-council)
+- [Key Features](#-key-features)
+- [Architecture](#-architecture)
+- [Model Inventory](#-model-inventory)
+- [Quick Start](#-quick-start)
+- [Usage Guide](#-usage-guide)
+- [Project Structure](#-project-structure)
+- [How Routing Decisions Work](#-how-routing-decisions-work)
+- [Cost Model & ROI](#-cost-model--roi)
+- [Testing & Validation](#-testing--validation)
+- [Executive Dashboard](#-executive-dashboard)
+- [Tech Stack](#-tech-stack)
+- [Design Principles](#-design-principles)
+- [Roadmap](#-roadmap)
+- [The 60-Second Explanation](#-the-60-second-explanation)
+- [License](#-license)
+- [Author](#-author)
 
-Every routing decision is logged, auditable, and explainable. Every dollar of cloud spend is tracked against a full-cloud baseline to measure **cost avoidance**. Sensitive data never leaves the device.
+______________________________________________________________________
 
-> **This is not a chatbot. It is a governance layer for AI compute allocation.**
+## 🎯 What Is This?
 
----
+A Python-based hybrid AI orchestration engine where **five independent local language models form a democratic council**. For every prompt, this council decides whether to answer locally at zero marginal cost or escalate to a paid cloud LLM.
 
-## Why Does This Exist?
+When the council stays local, the models deliberate on **which model should answer**, generate a response, and then **iteratively review each other’s work** until consensus is reached or a maximum number of iterations is hit.
 
-Most AI applications send every request to the cloud by default. This is:
+> This is a governance layer for AI compute allocation and privacy, not “just another chatbot”.
 
-- **Expensive** — cloud API costs scale linearly with usage
-- **Slow** — network round-trips add latency
-- **Risky** — sensitive data leaves your control
+Every routing decision, vote, review, and answer is logged to SQLite with full audit trails. Sensitive data never leaves the device. Cloud spending is bounded by soft and hard budget limits.
 
-The Arbitrage Kernel asks a simple question before every inference call:
+______________________________________________________________________
 
-> *"Does this task NEED the cloud, or can local hardware handle it?"*
+## 🤔 Why Does This Exist?
 
-By routing simple, low-stakes, or privacy-sensitive tasks to local models and reserving cloud compute for complex, high-importance tasks, the system achieves:
+Most AI workloads go straight to the cloud. That leads to:
 
-- **60–70% of workloads processed locally at zero marginal cost**
-- **Enterprise-grade privacy enforcement** — HIGH sensitivity data never leaves the device
-- **Budget governance** — soft and hard spending caps with automatic downgrade policies
-- **Full observability** — every call logged with model, tier, latency, tokens, cost, and routing reason
+| Problem   | Impact                                             |
+| --------- | -------------------------------------------------- |
+| Expensive | Cloud API costs scale linearly with usage          |
+| Slow      | Network round-trips add significant latency        |
+| Risky     | Sensitive data leaves your control and your device |
 
----
+The Arbitrage Kernel asks, for every request:
 
-## Key Features
+> “Do five independent models agree this task **needs** the cloud, or can local hardware handle it?”
 
-| Feature | Description |
-|---|---|
-| 🔀 **Explicit Routing Engine** | Rule-based model selection using task type, complexity, importance, privacy level, and budget state. Every decision includes a human-readable reason. |
-| 🔒 **Privacy Gating** | `HIGH` sensitivity tasks are forced to edge compute. No exceptions. No overrides. A non-negotiable policy enforced at the routing layer. |
-| 💰 **Budget Cap Enforcement** | Soft budget triggers model downgrade warnings. Hard budget blocks all cloud calls. Month-to-date spend tracked automatically. |
-| 📊 **Full Observability & Logging** | Every inference call logged to SQLite: model, tier, task type, latency, tokens, actual cost, and hypothetical cloud cost. |
-| 🤖 **Multi-Agent Research Council** | Three-agent pipeline (Explainer → Skeptic → Synthesizer) that produces structured JSON output with assumptions, risks, disagreements, and confidence scores. |
-| ✅ **Contract Tests** | Pytest-based schema validation ensures council output is always parseable and compliant — production discipline, not prototype behavior. |
-| 📈 **Benchmarking Framework** | 8 task scenarios across 6 models (2 edge + 4 cloud), producing CSV data and auto-generated Markdown comparison reports. |
-| 🖥️ **Executive Dashboard** | Streamlit dashboard showing cost avoidance, edge/cloud distribution, latency comparison, cumulative spend, and governance events. |
+By making that a **collective decision** rather than a static rule, the system targets:
 
----
+- 60–70% of workloads routed to **local inference at zero marginal cost**
+- Privacy policies enforced in code, not in prompts
+- Budget governance with automatic downgrade / cut‑off
+- Full observability of decisions and model behavior
 
-Architecture
-------------
+______________________________________________________________________
+
+## 🏛️ The Core Innovation: A Democratic Council
+
+For each prompt, the council runs four phases:
 
 ```text
-User Task
-    ↓
-TaskMetadata (type, complexity, sensitivity, importance)
-    ↓
-┌──────────────────────────────────────┐
-│            ROUTING ENGINE            │
-│  ┌───────────┐      ┌──────────────┐ │
-│  │ Privacy   │      │   Budget     │ │
-│  │  Policy   │      │   Policy     │ │
-│  └─────┬─────┘      └──────┬───────┘ │
-│        └─────────┬─────────┘         │
-│          Task-Based Routing          │
-│        (complexity × importance)     │
-└──────────┬───────────┬───────────────┘
-           ↓           ↓
-      ┌────────────┐   ┌────────────────────┐
-      │    EDGE    │   │       CLOUD        │
-      │   Ollama   │   │     Gemini API     │
-      │ Llama 3.1  │   │ 2.5 Flash / Pro    │
-      │ DeepSeek R1│   │ 3.0 Pro Preview    │
-      └─────┬──────┘   └────────┬───────────┘
-            |    |──────────────|
-            ↓    ↓
-      ┌───────────────────┐
-      │   LOGGING LAYER   │
-      │ SQLite + Cost     │
-      │ Tracking          │
-      └────────┬──────────┘
-               ↓
-      ┌───────────────────┐
-      │   ROI DASHBOARD   │
-      │ Cost Avoidance    │
-      │ Edge/Cloud %      │
-      │ Governance Events │
-      └───────────────────┘
+USER PROMPT
+    |
+    v
+PHASE 1: ROUTING VOTE
+  All 5 models vote:
+    "Local (free) or Cloud (paid)?"
+
+    |
+    v
+PHASE 2: MODEL SELECTION (if local)
+  Models vote on which one should answer
+  (confidence‑weighted plurality)
+
+    |
+    v
+PHASE 3: ANSWER GENERATION
+  Selected model produces an answer
+
+    |
+    v
+PHASE 4: ITERATIVE REVIEW
+  All models review, approve/reject, provide feedback
+  Up to 3 iterations until consensus or max rounds
+
+    |
+    v
+FINAL ANSWER
+Privacy override: If data_sensitivity == HIGH, routing is forced to local and the routing vote is skipped entirely. Models never get to vote on whether sensitive data leaves the device.
 ```
 
+## ✨ Key Features
 
+| Feature                 | Description                                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Democratic council      | 5 local LLMs vote on routing, model selection, and answer quality, weighted by confidence.                   |
+| Iterative peer review   | Models review the answer, provide feedback, and the answering model improves up to 3 rounds.                 |
+| Privacy gating          | HIGH sensitivity tasks bypass routing and are forced local.                                                  |
+| Budget governance       | Soft and hard budget caps; when exceeded, routing is automatically constrained to local.                     |
+| Full observability      | All calls, votes, reviews, and decisions logged to SQLite with reasoning and confidence scores.              |
+| Cloud fallback handling | If a voted cloud model is unavailable, the system gracefully falls back to local instead of failing.         |
+| Multi‑agent research    | Optional Explainer → Skeptic → Synthesizer pipeline that produces structured JSON with risks, consensus.     |
+| Executive dashboard     | Streamlit dashboard for cost avoidance, compute distribution, latency, governance events, and council stats. |
+
+## 🏗️ Architecture
+
+### System Overview
+
+```text
+User Prompt
+    |
+    v
+Task Metadata (type, complexity, sensitivity, importance)
+    |
+    v
+Privacy Pre‑Check
+    - If HIGH sensitivity -> force LOCAL, skip routing vote
+    - Else -> proceed to council
+
+    |
+    v
+COUNCIL DELIBERATION ENGINE (council/deliberation.py)
+  Phase 1: Routing Vote      -> "local" or "cloud" (plus suggested cloud tier)
+  Phase 2: Model Selection   -> choose best local model
+  Phase 3: Answer Generation -> selected model answers
+  Phase 4: Iterative Review  -> approve / refine up to N rounds
+
+    |
+    +-------------------+---------------------+
+    |                                       |
+    v                                       v
+EDGE TIER (Ollama)                     CLOUD TIER (Gemini API)
+
+    |
+    v
+Logging Layer (SQLite)
+  - call_logs
+  - council_deliberations
+
+    |
+    v
+Executive Dashboard (Streamlit)
+  - cost, latency, routing patterns, governance events
+```
 
 ### Routing Decision Hierarchy
 
-Decisions are evaluated **in strict order** — the first matching rule wins:
+Routing decisions are evaluated in strict order; the first match wins:
 
-1. **Forced Override** → Use the explicitly specified model
-2. **Privacy Check** → `HIGH` sensitivity → forced to edge (non-negotiable)
-3. **Privacy Mode** → `edge_only` mode → everything local
-4. **Hard Budget** → Monthly cloud spend ≥ hard cap → forced to edge
-5. **Soft Budget** → Monthly cloud spend ≥ soft cap → downgrade or prefer edge
-6. **Task Routing** → Match task type + complexity + importance to model capabilities
-7. **Default** → Edge (minimize cost)
+```text
+Start
+  |
+  v
+Is data_sensitivity == HIGH?
+  |-- YES --> Force LOCAL (skip council)
+  |
+  v
+Is privacy mode == "edge_only"?
+  |-- YES --> Force LOCAL
+  |
+  v
+Has hard budget been exceeded?
+  |-- YES --> Force LOCAL
+  |
+  v
+Has soft budget been exceeded?
+  |-- YES --> Prefer LOCAL, downgrade cloud tier
+  |
+  v
+Run council routing vote (5 models)
+  |
+  v
+Compare confidence‑weighted scores:
+  - If local_score >= cloud_score -> LOCAL PATH
+  - Else -> CLOUD PATH (using voted tier)
+```
 
----
+## 📦 Model Inventory
 
-## Model Inventory
+### Edge Models (Local via Ollama)
 
-### Edge Models (Local — Ollama on Apple Silicon)
-
-| Model | ID | Parameters | Quantization | Strengths |
-|---|---|---|---|---|
-| **Llama 3.1 8B Instruct** | `ollama/llama3.1-8b` | 8B | Q5_K_M | Strong general-purpose instruction following, balanced quality/speed |
-| **DeepSeek R1 8B** | `ollama/deepseek-r1-8b` | 8B | Default | Excellent reasoning and chain-of-thought, strong at code and analysis |
+| Model               | ID                      | Params | Notes                                      |
+| ------------------- | ----------------------- | ------ | ------------------------------------------ |
+| Llama 3.1 8B        | `ollama/llama3.1-8b`    | 8B     | Strong instruction following, good default |
+| DeepSeek R1 8B      | `ollama/deepseek-r1-8b` | 8B     | Excellent reasoning / analytical tasks     |
+| Qwen 3 8B           | `ollama/qwen3-8b`       | 8B     | Fast, multilingual, general knowledge      |
+| DeepSeek Coder 6.7B | `ollama/deepseek-coder` | 6.7B   | Specialized for code tasks                 |
+| GPT‑OSS 20B (opt.)  | `ollama/gpt-oss-20b`    | 20B    | Strongest local model, heavy on RAM        |
 
 ### Cloud Models (Google Gemini API)
 
-| Model | ID | Tier | Best For |
-|---|---|---|---|
-| **Gemini 2.5 Flash** | `gemini/gemini-2.5-flash` | Standard | Fast general-purpose tasks, good cost/quality balance |
-| **Gemini 2.5 Flash Lite** | `gemini/gemini-2.5-flash-lite` | Economy | High-volume, cost-sensitive tasks |
-| **Gemini 2.5 Pro** | `gemini/gemini-2.5-pro` | Premium | Complex reasoning, deep research, high-stakes analysis |
-| **Gemini 3.0 Pro Preview** | `gemini/gemini-3-pro-preview` | Cutting-edge | Latest capabilities, frontier model performance |
+| Model                  | ID                       | Tier     | Best For                              |
+| ---------------------- | ------------------------ | -------- | ------------------------------------- |
+| Gemini 2.5 Flash Lite  | `gemini-2.5-flash-lite`  | Economy  | High‑volume, cost‑sensitive workloads |
+| Gemini 2.5 Flash       | `gemini-2.5-flash`       | Standard | General‑purpose, fast responses       |
+| Gemini 2.5 Pro         | `gemini-2.5-pro`         | Premium  | Complex reasoning and research        |
+| Gemini 3.0 Pro Preview | `gemini-3.0-pro-preview` | Frontier | Frontier‑tier experiments             |
 
----
-
-## Quick Start
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- **macOS with Apple Silicon** (M1/M2/M3/M4 — developed on M1 Pro 16GB)
-- **Python 3.14+**
-- **Ollama** installed and running
-- **Google Gemini API key** (free tier)
+- macOS with Apple Silicon (developed on M1 Pro 16 GB)
+- Python 3.14+
+- Ollama installed and running
+- Google Gemini API key (free tier available via Google AI Studio)
 
-### 1. Clone the Repository
+1. Clone the repository
 
 ```bash
 git clone https://github.com/im-AbhiP/edge-cloud-arbitrage-kernel.git
@@ -153,190 +231,271 @@ cd edge-cloud-arbitrage-kernel
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-
-pip install httpx python-dotenv pyyaml rich
-pip install pytest ruff
-pip install streamlit plotly pandas
 ```
 
-### 3. Install and Start Ollama
+Install runtime dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+For development (testing, linting, formatting)
+
+```bash
+pip install -r requirements-dev.txt pre-commit install
+```
+
+3. Install and start Ollama
 
 ```bash
 brew install ollama
-
 ollama serve
-ollama pull llama3.1:8b-instruct-q5_K_M
-ollama pull deepseek-r1:8b
 ```
 
-### 4. Configure Environment Variables
-Create a .env file in the project root:
+In a new terminal tab, pull the models:
+
+```bash
+ollama pull llama3.1:8b-instruct-q5_K_M
+ollama pull deepseek-r1:8b
+ollama pull qwen3:8b
+ollama pull deepseek-coder:6.7b
+# optional heavy model
+ollama pull gpt-oss:20b
+```
+
+4. Configure environment variables
+   Create a .env in the project root:
 
 ```text
 GEMINI_API_KEY=your_gemini_api_key_here
 PRIVACY_MODE=hybrid
 SOFT_BUDGET_USD=1.00
 HARD_BUDGET_USD=5.00
+Get a Gemini key from Google AI Studio.
 ```
 
-Get your free Gemini API key at Google AI Studio.
-
-### 5. Run the Smoke Test
+5. Run the smoke test
 
 ```bash
 python test_smoke.py
 ```
 
-You should see three tests execute:
-Test 1: Simple Q&A → routed to edge (Llama 3.1 8B)
-Test 2: Deep research → routed to cloud (Gemini 2.5 Pro)
-Test 3: Sensitive data → forced to edge regardless of complexity
-### Basic: Route a Single Task
+You should see the council run through three scenarios (simple question, complex research, sensitive data) with routing decisions printed in the console.
 
-```python
-from runtime.tasks import TaskMetadata, TaskType, DataSensitivity
-from runtime.router import ModelRouter
-
-router = ModelRouter()
-
-# Simple question → routes to local model (free)
-result = router.run(
-    prompt="What is the difference between TCP and UDP?",
-    meta=TaskMetadata(
-        task_type=TaskType.QUICK_QA,
-        complexity=0.2,
-        importance=0.3,
-        budget_sensitivity=0.8,
-    ),
-)
-
-print(result.text)
-print(f"Model: {result.model_name} | Cost: $0.00")
-```
-
-### Privacy-Enforced Task
-
-```python
-# Sensitive data → ALWAYS stays local, no matter what
-result = router.run(
-    prompt="Analyze this employee's compensation data...",
-    meta=TaskMetadata(
-        task_type=TaskType.DATA_ANALYSIS,
-        complexity=0.9,
-        importance=0.9,
-        data_sensitivity=DataSensitivity.HIGH,  # Forces edge
-    )
-)
-# Guaranteed: result.tier == "edge"
-```
-
-### Multi-Agent Research Council
-
-```python
-from council.agents import ResearchCouncil
-council = ResearchCouncil() output = council.run( "What are the tradeoffs of edge vs cloud AI inference?" )
-print(output["council_output"]["summary"]) print(output["council_output"]["risks"]) print(output["council_output"]["confidence"])
-```
-
-Output is structured JSON with assumptions, risks, disagreements.
-
-### Run Benchmarks
+6. Run contract tests
 
 ```bash
-python -m benchmarking.run_benchmarks
+pytest council/contract_tests.py -v
 ```
 
-Runs 8 task scenarios across all 6 available models and generates:
- - `benchmarking/reports/benchmark_YYYYMMDD_HHMMSS.csv`
- - `benchmarking/reports/benchmark_YYYYMMDD_HHMMSS.md`
-
-### Generate ROI Report
+7. Launch the interactive CLI
 
 ```bash
-python scripts/summarize_logs.py
+python main.py
 ```
 
-### Launch the Dashboard
+8. Launch the dashboard
 
 ```bash
 streamlit run dashboard/streamlit_app.py
 ```
 
-Opens an interactive dashboard at http://localhost:8501.
-## Project Structure
+## 💻 Usage Guide
+
+### Interactive CLI
+
+```bash
+python main.py                     # default settings
+python main.py --fast              # fewer, smaller models for speed
+python main.py --include-large     # include heavy gpt-oss:20b
+python main.py --models 3          # use only 3 council models
+python main.py --iterations 2      # max 2 review rounds
+python main.py --majority          # majority approval instead of unanimous
+```
+
+Inside the session you can:
+
+```text
+What is the capital of France?
+/research Analyze AMD MI300X vs NVIDIA H100
+/code Review this function: def add(a, b): return a + b
+/private Analyze this salary data: John earns $150k
+stats
+help
+quit
+```
+
+### Prefix hints:
+
+| Prefix      | Effect                                    |
+| ----------- | ----------------------------------------- |
+| `/research` | Deep research / analysis                  |
+| `/code`     | Code review / generation                  |
+| `/summary`  | Summarization                             |
+| `/planning` | Planning / strategy tasks                 |
+| `/creative` | Creative writing                          |
+| `/data`     | Data analysis                             |
+| `/private`  | Force local processing (HIGH sensitivity) |
+
+### Programmatic API (example)
+
+```python
+from council.agents import LLMCouncil
+from runtime.tasks import TaskType, DataSensitivity
+
+council = LLMCouncil(
+    council_models=[
+        "ollama/llama3.1-8b",
+        "ollama/deepseek-r1-8b",
+        "ollama/qwen3-8b",
+    ],
+    max_iterations=3,
+    approval_threshold=0.67,
+)
+
+result = council.ask(
+    "What is the difference between TCP and UDP?",
+    task_type=TaskType.QUICK_QA,
+    complexity=0.2,
+)
+
+print(result.final_answer)
+print(result.routing_decision)
+print(result.selected_model)
+print(result.consensus_reached)
+```
+
+### Privacy‑enforced task:
+
+```python
+result = council.ask(
+    "Analyze this employee's compensation: $145,000 base + $30,000 bonus",
+    task_type=TaskType.DATA_ANALYSIS,
+    data_sensitivity=DataSensitivity.HIGH,
+)
+
+assert result.routing_decision == "local"
+assert result.routing_votes == []
+```
+
+## 📁 Project Structure
 
 ```text
 edge-cloud-arbitrage-kernel/
-├── runtime/                   # Core inference engine
-│   ├── __init__.py
-│   ├── models.py              # Model clients (Ollama, Gemini)
-│   ├── tasks.py               # TaskMetadata, TaskType, DataSensitivity
-│   ├── router.py              # Routing engine with policy enforcement
-│   ├── prompts.py             # Prompt registry loader
-│   ├── prompts.yaml           # Prompt templates with expected tokens
-│   ├── logging_utils.py       # SQLite logging, cost estimation, ROI stats
-│   └── policies.py            # Policy configuration
-│
-├── council/                   # Multi-agent research pipeline
-│   ├── __init__.py
-│   ├── agents.py              # Explainer → Skeptic → Synthesizer
-│   ├── schemas.py             # JSON schema for structured output
-│   └── contract_tests.py      # Pytest schema validation
-│
-├── benchmarking/              # Empirical evaluation framework
-│   ├── __init__.py
-│   ├── run_benchmarks.py      # Benchmark runner (8 tasks × 6 models)
-│   ├── benchmark_dataset.yaml # Benchmark scenarios
-│   └── reports/               # Auto-generated CSV + Markdown reports
-│
-├── dashboard/
-│   └── streamlit_app.py       # Executive ROI dashboard
-│
-├── scripts/
-│   └── summarize_logs.py      # CLI ROI report generator
-│
-├── analysis/
-│   └── analyze_logs.py        # Ad-hoc log analysis
-│
-├── data/
-│   └── logs.db                # SQLite call log database (auto-created)
-│
-├── reports/                   # Generated ROI summaries
-├── test_smoke.py              # End-to-end smoke test
-├── .env                       # API keys & config (not committed)
-├── .gitignore
-└── README.md
+|
+|-- runtime/                            # Core inference engine
+|   |-- __init__.py
+|   |-- models.py                       # Model clients, profiles, registry
+|   |-- tasks.py                        # TaskMetadata, TaskType, DataSensitivity
+|   |-- router.py                       # Council-based and rule-based routing
+|   |-- prompts.py                      # Prompt registry loader
+|   |-- prompts.yaml                    # Prompt templates with expected tokens
+|   |-- logging_utils.py               # SQLite logging, cost estimation, ROI stats
+|   +-- policies.py                     # Policy configuration
+|
+|-- council/                            # Council of Local LLMs
+|   |-- __init__.py
+|   |-- deliberation.py                 # 4-phase deliberation engine (core)
+|   |-- agents.py                       # LLMCouncil high-level interface
+|   |-- prompts.py                      # System prompts for voting and review
+|   |-- schemas.py                      # JSON schemas for votes and reviews
+|   +-- contract_tests.py              # 27 pytest contract tests
+|
+|-- benchmarking/                       # Empirical evaluation framework
+|   |-- __init__.py
+|   |-- run_benchmarks.py              # Benchmark runner (tasks x models)
+|   |-- benchmark_dataset.yaml         # 8 benchmark scenarios
+|   +-- reports/                        # Auto-generated CSV + Markdown reports
+|
+|-- dashboard/
+|   +-- streamlit_app.py              # Executive dashboard (8 sections)
+|
+|-- scripts/
+|   +-- summarize_logs.py             # CLI ROI report generator
+|
+|-- analysis/
+|   +-- analyze_logs.py               # Ad-hoc log analysis utilities
+|
+|-- data/
+|   +-- logs.db                        # SQLite database (auto-created, gitignored)
+|
+|-- reports/                            # Generated ROI summaries
+|
+|-- main.py                             # Interactive CLI entry point
+|-- test_smoke.py                       # End-to-end smoke test (3 scenarios)
+|-- requirements.txt                    # Runtime dependencies (8 packages)
+|-- requirements-dev.txt                # Dev dependencies (testing, linting, formatting)
+|-- requirements-lock.txt               # Full pip freeze snapshot (optional)
+|-- .pre-commit-config.yaml            # mdformat hook configuration
+|-- .env                                # API keys and config (gitignored)
+|-- .gitignore
+|-- LICENSE
++-- README.md
 ```
 
-## How Routing Decisions Work
+## 🔍 How Routing Decisions Work
 
-Every routing decision is transparent and auditable. The router logs not just which model was selected, but **why**.
+Every routing decision is logged with both the final outcome and the individual votes that led to it.
 
-### Routing Examples
-| Scenario                               | Decision                     | Reason                                       |
-|----------------------------------------|------------------------------|----------------------------------------------|
-| Quick Q&A, low importance              | ollama/llama3.1-8b           | Simple task + cost-conscious → fast local    |
-| Deep research, high complexity         | gemini/gemini-2.5-pro        | Complex + important → premium cloud model    |
-| Reasoning-heavy, moderate importance   | ollama/deepseek-r1-8b        | Reasoning task → DeepSeek R1 excels locally  |
-| High-volume, low-stakes task           | gemini/gemini-2.5-flash-lite | Economy tier → minimize cloud cost           |
-| Any task with HIGH data sensitivity    | ollama/llama3.1-8b           | HIGH sensitivity — forced to edge            |
-| Any task when budget exceeded          | ollama/llama3.1-8b           | Hard budget exceeded → edge only             |
-| Cloud API failure                      | ollama/llama3.1-8b           | Fallback after cloud failure                 |
-| Frontier-capability needed             | gemini/gemini-3-pro-preview  | Cutting-edge task → latest model             |
+### Examples
 
+| Scenario                    | Expected Behavior                                     |
+| --------------------------- | ----------------------------------------------------- |
+| Simple factual question     | Council votes LOCAL unanimously                       |
+| Complex multi‑step analysis | Council may vote CLOUD (premium tier)                 |
+| Code review task            | Council votes LOCAL, choosing a code‑specialist model |
+| Reasoning‑heavy task        | Council prefers a reasoning‑focused local model       |
+| HIGH sensitivity data       | Routing vote skipped, forced LOCAL                    |
+| Budget exceeded             | Rules override council, force LOCAL                   |
+| Cloud API failure           | Automatic fallback to LOCAL                           |
 
-## Cost Model
-| Model                        | Tier             | Cost               |
-|-----------------------------|------------------|--------------------|
-| ollama/llama3.1-8b          | Edge             | $0.00              |
-| ollama/deepseek-r1-8b       | Edge             | $0.00              |
-| gemini/gemini-2.5-flash-lite| Cloud (Economy)  | Per-token pricing  |
-| gemini/gemini-2.5-flash     | Cloud (Standard) | Per-token pricing  |
-| gemini/gemini-2.5-pro       | Cloud (Premium)  | Per-token pricing  |
-| gemini/gemini-3-pro-preview | Cloud (Frontier) | Per-token pricing  |
+### Example log (truncated):
 
-For every edge call, the system calculates the hypothetical cloud cost — what it would have cost if sent to Gemini 2.5 Flash. The difference is the cost avoidance metric that powers the ROI dashboard.
-### Sample ROI Output
+```text
+============================================================
+COUNCIL DELIBERATION [a3f2b1c9]
+Prompt: What is the capital of France?
+============================================================
+
+--- PHASE 1: Routing Vote (local vs. cloud) ---
+[routing_vote] Asking ollama/llama3.1-8b... OK vote=local conf=0.95
+[routing_vote] Asking ollama/deepseek-r1-8b... OK vote=local conf=0.90
+[routing_vote] Asking ollama/qwen3-8b... OK vote=local conf=0.92
+
+[TALLY] Local: 3, Cloud: 0 -> Decision: LOCAL
+
+--- PHASE 2: Model Selection Vote ---
+[model_selection] ... vote=ollama/qwen3-8b conf=0.80
+...
+
+[SELECTED] ollama/qwen3-8b will generate the answer
+
+--- PHASE 3: Generating Answer ---
+[GENERATE] ollama/qwen3-8b is answering...
+[GENERATE] Answer received
+
+--- PHASE 4: Review Iteration 1/2 ---
+[review iter 1] ... APPROVED score=0.92
+...
+
+[CONSENSUS] All council members approve!
+============================================================
+DELIBERATION COMPLETE [a3f2b1c9]
+Decision: LOCAL -> ollama/qwen3-8b
+Iterations: 1
+Consensus: YES
+💰 Cost Model & ROI
+Pricing (illustrative)
+Model	Tier	Input / Output Pricing (per 1M tokens)
+All Ollama edge models	Edge	$0.00 / $0.00
+Gemini 2.5 Flash Lite	Cloud (Economy)	$0.075 / $0.30
+Gemini 2.5 Flash	Cloud (Standard)	$0.15 / $0.60
+Gemini 2.5 Pro	Cloud (Premium)	$1.25 / $5.00
+Gemini 3.0 Pro Preview	Cloud (Frontier)	$2.50 / $10.00
+For each edge call, the system also calculates the hypothetical cloud cost (e.g., if routed to Flash) and logs cost‑avoidance.
+```
+
+Sample ROI summary (from scripts/summarize_logs.py):
 
 ```text
 Edge-Cloud AI Arbitrage Kernel — ROI Report
@@ -351,12 +510,11 @@ Total cloud cost: $0.0123
 Cost if ALL calls were cloud: $0.0970
 💰 Cost avoided: $0.0847
 
-Average latency: 1,847ms
+Average latency: 1,847 ms
 Success rate: 97.8%
 ```
----
 
-## Testing
+## 🧪 Testing & Validation
 
 ### Contract Tests
 
@@ -364,96 +522,105 @@ Success rate: 97.8%
 pytest council/contract_tests.py -v
 ```
 
-Validates:
- - ✅ All required keys present (summary, assumptions, risks, disagreements, confidence)
- - ✅ Confidence score is a number in [0.0, 1.0]
- - ✅ assumptions and risks are lists 
- - ✅ Summary is a non-empty string
+Categories covered:
 
-###Smoke Test
+- Deliberation structure and types
+- Iteration and consensus behavior
+- Timing bounds
+- Vote and review schema correctness
+- Privacy enforcement (HIGH sensitivity always local)
+- Cloud path behavior
+- Local path behavior
+
+### Smoke Test
 
 ```bash
 python test_smoke.py
 ```
 
-Validates the full pipeline: task metadata → routing → model call → logging → stats.
+Covers:
 
-## Tech Stack
-| Component        | Technology                 | Why                                                   |
-|------------------|----------------------------|-------------------------------------------------------|
-| Language         | Python 3.14                | Latest stable release, performance improvements       |
-| Local Inference  | Ollama                     | Best local LLM runtime for Apple Silicon, REST API    |
-| Edge Models      | Llama 3.1 8B, DeepSeek R1  | Instruction-following + reasoning coverage            |
-| Cloud Inference  | Google Gemini API          | Generous free tier, strong quality, simple REST API   |
-| HTTP Client      | httpx                      | Modern, async-capable, no SDK dependency              |
-| Database         | SQLite                     | Zero-config, built into Python, SQL-queryable         |
-| Config           | YAML + .env                | Human-readable config, secure credential management   |
-| Testing          | pytest                     | Industry standard, clean syntax                       |
-| Dashboard        | Streamlit + Plotly         | Rapid interactive dashboards with minimal code        |
-| Linter           | Ruff                       | Faster than flake8, replaces black + isort            |
-| IDE              | PyCharm Professional       | Best-in-class Python IDE with database tools          |
+- Simple Q&A routed locally
+- Complex research possibly routed to cloud
+- HIGH sensitivity data forced to local regardless of other factors
 
-## Dashboard:
+## 📊 Executive Dashboard
 
+The Streamlit dashboard (in dashboard/streamlit_app.py) provides:
 
+- Cost Avoidance – cost avoided vs full‑cloud baseline, edge %, cloud spend
+- Compute Overview – edge/cloud share, latency by model
+- Cost Over Time – cumulative actual cost vs hypothetical full‑cloud cost
+- Governance Events – privacy and budget enforcement counts
+- Per‑Model Breakdown – calls, latency, tokens, cost, success rate, tokens/sec
+- Inference Performance – prefill vs decode speed, load times, throughput
+- Council Stats – routing vote distribution, selection popularity, consensus rate, iterations
+- Raw Logs – direct views on call_logs and council_deliberations
 
-The Streamlit dashboard provides five key views:
- - 💰 Cost Avoidance — Dollars saved vs. a full-cloud baseline 
- - 🏠 Edge/Cloud Distribution — Pie chart of compute allocation 
- - ⚡ Latency Comparison — Bar chart of average latency per model 
- - 📈 Cumulative Cost — Line chart comparing hybrid cost vs. cloud-only cost over time 
- - 🔒 Governance Events — Count of privacy and budget enforcement actions
+Launch:
 
-Launch with: 
-`streamlit run dashboard/streamlit_app.py`
+```bash
+streamlit run dashboard/streamlit_app.py
+```
+
+Dashboard screenshot:
 ![Dashboard Screenshot](./reports/dashboard_screenshot.png)
 
-## Roadmap
-✅ v1 (Current)
- - Model client abstraction (Ollama + Gemini, 6 models)
- - Explicit routing engine with privacy & budget policies 
- - SQLite logging with cost tracking and ROI computation 
- - Prompt registry with expected token counts 
- - Benchmarking framework (8 scenarios × 6 models)
- - Multi-agent research council with structured JSON output 
- - Contract tests for output schema validation 
- - Executive Streamlit dashboard 
- - CLI ROI report generator
+## 🛠️ Tech Stack
 
-🔜 v2 (Planned — Choose One)
- - Performance-Adaptive Router — Use aggregate log statistics to auto-adjust routing thresholds 
- - Task Decomposition — Split complex tasks: cheap local chunking → expensive cloud synthesis 
- - Confidence-Based Escalation — If council confidence < threshold, re-route to a stronger model
+| Component       | Technology         | Why                                        |
+| --------------- | ------------------ | ------------------------------------------ |
+| Language        | Python 3.11+       | Mature ecosystem, batteries‑included       |
+| Local inference | Ollama             | Best‑in‑class for Apple Silicon            |
+| Cloud inference | Google Gemini API  | Strong quality and free tier               |
+| Data store      | SQLite             | Zero config, easy to ship, SQL‑friendly    |
+| Config          | YAML + `.env`      | Human‑readable, environment‑aware          |
+| HTTP client     | httpx              | Modern async client, no heavy SDK required |
+| Testing         | pytest             | Standard, expressive test framework        |
+| Linting         | Ruff               | Fast, modern linting                       |
+| Dashboard       | Streamlit + Plotly | Rapid interactive analytics                |
 
-🔮 Future Directions
- - OpenRouter integration for access to 100+ models through a single API 
- - Adaptive routing weights learned from historical performance data 
- - Context budget optimization for long-document tasks 
- - Multi-tenant support with per-user privacy and budget policies 
- - MassGen integration for advanced agent orchestration
+## 🎯 Design Principles
 
-## Design Principles
- + Explicit over Magic — Routing rules are readable if-else logic, not opaque ML models. Every decision is explainable in plain English. 
- + Measure Everything — If it's not logged, it didn't happen. Every call captures model, tier, latency, tokens, cost, and routing reason. 
- + Privacy is Non-Negotiable — HIGH sensitivity data never leaves the device. Enforced at the routing layer, not left to the caller. 
- + Ship, Then Improve — v1 uses simple rules. v2 adds data-driven optimization. Complexity is earned, not assumed. 
- + Interview-Ready at Every Commit — Code, tests, documentation, and dashboards are always in a presentable state.
+| Principle                 | Description                                                          |
+| ------------------------- | -------------------------------------------------------------------- |
+| Democracy over diktat     | Multiple models vote instead of a single authority.                  |
+| Explicit over magic       | Routing rules are readable; every decision is logged with reasoning. |
+| Measure everything        | If it isn’t logged, it didn’t happen.                                |
+| Privacy is non‑negotiable | HIGH sensitivity data never leaves the device, enforced in code.     |
+| Iterate to quality        | First drafts are reviewed and improved, not accepted blindly.        |
+| Graceful degradation      | Failures fall back to safe defaults, not crashes.                    |
+| Ship, then improve        | v1 is explicit and sequential; v2 can add parallelism and learning.  |
 
-## The 60-Second Explanation
-> I built a hybrid AI orchestration kernel that dynamically allocates inference workloads between edge and cloud based on cost, complexity, and privacy constraints.
-> The edge tier runs Llama 3.1 and DeepSeek R1 locally on Apple Silicon at zero marginal cost, while the cloud tier leverages four Gemini models from economy to frontier.
-> Every routing decision is explainable and auditable. Sensitive data never leaves the device — that's a non-negotiable policy enforced at the routing layer.
-> In testing, the system routed approximately 60–70% of workloads to local inference while maintaining comparable output quality.
-> I validated this with empirical benchmarks across 8 task types and 6 models, and built an executive dashboard that visualizes cost avoidance, compute distribution, and governance events in real time.
+## 🗺️ Roadmap
 
+### v1 (Current)
 
-### License
+- ✅ Local council over multiple Ollama models
+- ✅ Cloud integration via Gemini (multiple tiers)
+- ✅ Four‑phase deliberation with iterative review
+- ✅ Privacy and budget enforcement
+- ✅ SQLite logging and ROI reporting
+- ✅ Executive Streamlit dashboard
+- ✅ Contract tests and smoke tests
+
+### v2 (Planned)
+
+- Performance‑adaptive routing based on historical logs
+- Task decomposition (local chunking, cloud synthesis)
+- Confidence‑based escalation to stronger models
+- Parallel council execution on higher‑RAM systems
+- Integration with additional model providers (e.g., OpenRouter)
+
+## ⏱️ The 60-Second Explanation
+
+I built a hybrid AI orchestration engine where multiple local language models form a democratic council. For each prompt, they collectively vote on whether to answer locally at zero cost or escalate to a cloud model like Gemini. When they stay local, they also vote on which model should answer based on the task type and complexity. The selected model generates an answer, and then the whole council reviews it, providing targeted feedback. The answering model improves its answer until they reach consensus or hit a max iteration limit. Sensitive data never gets a vote: it is forced to remain on device by a hard privacy rule. The system is optimized for Apple Silicon, routes most workloads to local inference while maintaining quality, logs everything to SQLite, and exposes an executive dashboard for cost avoidance, latency, and governance events.
+
+📄 License
 This project is licensed under the MIT License — see the LICENSE file for details.
 
-### Author
-Abhishek\
-Senior Technical Product Manager @ AMD | Georgia Tech
-
+👤 Author
+Abhishek Patil\
+Senior Technical Product Manager @ AMD\
 Building at the intersection of AI infrastructure, edge compute, and hybrid cloud governance.\
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue)](https://linkedin.com/in/abhishekhpatil)\
-[![GitHub](https://img.shields.io/badge/GitHub-Follow-black)](https://github.com/im-AbhiP)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue)](https://linkedin.com/in/abhishekhpatil) [![GitHub](https://img.shields.io/badge/GitHub-Follow-black)](https://github.com/im-AbhiP)
