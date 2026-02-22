@@ -5,8 +5,20 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4d497566-7c14-4a48-a3b8-86c3f87b5a22" name="Changes" comment="Add requirements.txt for 3.14.3 environment">
+      <change afterPath="$PROJECT_DIR$/council/deliberation.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/council/prompts.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/council/agents.py" beforeDir="false" afterPath="$PROJECT_DIR$/council/agents.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/council/contract_tests.py" beforeDir="false" afterPath="$PROJECT_DIR$/council/contract_tests.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/council/schemas.py" beforeDir="false" afterPath="$PROJECT_DIR$/council/schemas.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dashboard/streamlit_app.py" beforeDir="false" afterPath="$PROJECT_DIR$/dashboard/streamlit_app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/runtime/logging_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/runtime/logging_utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/runtime/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/runtime/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/runtime/router.py" beforeDir="false" afterPath="$PROJECT_DIR$/runtime/router.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/runtime/tasks.py" beforeDir="false" afterPath="$PROJECT_DIR$/runtime/tasks.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test_smoke.py" beforeDir="false" afterPath="$PROJECT_DIR$/test_smoke.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -14,7 +26,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="38" />
+    <option name="cachedIndexableFilesCount" value="40" />
     <option name="fileBasedEmbeddingIndicesEnabled" value="true" />
   </component>
   <component name="FileTemplateManagerImpl">
@@ -31,6 +43,9 @@
     <commands />
     <urls />
   </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 4
 }</component>
@@ -39,39 +54,40 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "Python tests.Python tests in contract_tests.py.executor": "Run",
-    "Python tests.Python tests in test_smoke.py.executor": "Run",
-    "Python.run_benchmarks.executor": "Run",
-    "Python.test_smoke.executor": "Run",
-    "RunOnceActivity.MCP Project settings loaded": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "ai.playground.ignore.import.keys.banner.in.settings": "true",
-    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
-    "git-widget-placeholder": "main",
-    "junie.onboarding.icon.badge.shown": "true",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyIntegratedToolsModulesConfigurable",
-    "to.speed.mode.migration.done": "true",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ASKED_SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Python tests.Python tests in contract_tests.py.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests in test_smoke.py.executor&quot;: &quot;Run&quot;,
+    &quot;Python.run_benchmarks.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test_smoke.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;ai.playground.ignore.import.keys.banner.in.settings&quot;: &quot;true&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;run.code.analysis.last.selected.profile&quot;: &quot;aDefault&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyIntegratedToolsModulesConfigurable&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   },
-  "keyToStringList": {
-    "DatabaseDriversLRU": [
-      "sqlite"
+  &quot;keyToStringList&quot;: {
+    &quot;DatabaseDriversLRU&quot;: [
+      &quot;sqlite&quot;
     ]
   }
-}]]></component>
+}</component>
   <component name="RunManager" selected="Python tests.Python tests in contract_tests.py">
     <configuration name="run_benchmarks" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="edge-cloud-arbitrage-kernel" />
@@ -169,6 +185,7 @@
       <workItem from="1771095104862" duration="7500000" />
       <workItem from="1771146703402" duration="198000" />
       <workItem from="1771146910180" duration="11292000" />
+      <workItem from="1771669091453" duration="7702000" />
     </task>
     <task id="LOCAL-00001" summary="Add requirements.txt for 3.14.3 environment">
       <option name="closed" value="true" />
@@ -204,7 +221,7 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/main.py</url>
-          <line>8</line>
+          <line>476</line>
           <option name="timeStamp" value="1" />
         </line-breakpoint>
       </breakpoints>

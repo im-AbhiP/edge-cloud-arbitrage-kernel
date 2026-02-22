@@ -16,7 +16,7 @@ a compelling narrative for every interview.
 
 import sqlite3
 import os
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import Optional, Dict
 
@@ -25,11 +25,19 @@ from typing import Optional, Dict
 # Ollama is always $0 — the whole point of edge compute.
 # Cloud prices from Google's published rates.
 COST_TABLE = {
-    "ollama/mistral": {"input": 0.0, "output": 0.0},
-    "ollama/phi3": {"input": 0.0, "output": 0.0},
-    "gemini/gemini-1.5-flash": {"input": 0.075, "output": 0.30},
-    "gemini/gemini-1.5-pro": {"input": 1.25, "output": 5.00},
+    # Edge models — always $0
+    "ollama/gpt-oss-20b":           {"input": 0.0, "output": 0.0},
+    "ollama/llama3.1-8b":           {"input": 0.0, "output": 0.0},
+    "ollama/deepseek-r1-8b":        {"input": 0.0, "output": 0.0},
+    "ollama/qwen3-8b":              {"input": 0.0, "output": 0.0},
+    "ollama/deepseek-coder-6.7b":   {"input": 0.0, "output": 0.0},
+    # Cloud models — per 1M tokens
+    "gemini/gemini-2.5-flash":      {"input": 0.15, "output": 0.60},
+    "gemini/gemini-2.5-flash-lite": {"input": 0.075, "output": 0.30},
+    "gemini/gemini-2.5-pro":        {"input": 1.25, "output": 5.00},
+    "gemini/gemini-3-pro-preview":  {"input": 2.50, "output": 10.00},
 }
+
 
 
 def estimate_cost(model_name: str, prompt_tokens: int,
@@ -156,15 +164,60 @@ class CallLogger:
                              DEFAULT
                              1,
                              error
-                             TEXT
+                             TEXT,
+                             prefill_ms
+                             REAL,
+                             decode_ms
+                             REAL,
+                             load_ms
+                             REAL
+                         )
+                         """)
+
+            # NEW: Council deliberation logs
+            # WHY: This table captures the ENTIRE deliberation process.
+            # Every vote, every review, every iteration. This is what
+            # makes the system observable and what you show in demos.
+            conn.execute("""
+                         CREATE TABLE IF NOT EXISTS council_deliberations (
+                             id INTEGER PRIMARY KEY AUTOINCREMENT,
+                             deliberation_id TEXT NOT NULL,
+                             timestamp TEXT NOT NULL,
+                             phase TEXT NOT NULL,
+                             model_name TEXT NOT NULL,
+                             vote_or_action TEXT,
+                             reasoning TEXT,
+                             confidence REAL,
+                             iteration INTEGER DEFAULT 1,
+                             approved BOOLEAN,
+                             feedback TEXT,
+                             total_latency_ms REAL,
+                             prompt_preview TEXT
                          )
                          """)
             conn.commit()
 
+        # Add new columns if they don't exist (safe for existing databases)
+        try:
+            conn.execute("ALTER TABLE call_logs ADD COLUMN prefill_ms REAL")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE call_logs ADD COLUMN decode_ms REAL")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE call_logs ADD COLUMN load_ms REAL")
+        except Exception:
+            pass
+
     def log(self, model_name: str, tier: str, task_type: str,
             latency_ms: float, prompt_tokens: int, completion_tokens: int,
             success: bool = True, error: Optional[str] = None,
-            privacy_enforced: bool = False, budget_enforced: bool = False):
+            privacy_enforced: bool = False, budget_enforced: bool = False,
+            prefill_ms: Optional[float] = None,
+            decode_ms: Optional[float] = None,
+            load_ms: Optional[float] = None):
         """Log a single model call to the database."""
 
         cost = estimate_cost(
@@ -180,15 +233,17 @@ class CallLogger:
                          (timestamp, model_name, tier, task_type, latency_ms,
                           prompt_tokens, completion_tokens, total_tokens,
                           estimated_cost_usd, cloud_alternative_cost_usd,
-                          privacy_enforced, budget_enforced, success, error)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                          privacy_enforced, budget_enforced, success, error,
+                          prefill_ms, decode_ms, load_ms)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                          """, (
-                             datetime.utcnow().isoformat(),
+                             datetime.now(UTC).isoformat(),
                              model_name, tier, task_type, latency_ms,
                              prompt_tokens, completion_tokens,
                              (prompt_tokens or 0) + (completion_tokens or 0),
                              cost, cloud_alt_cost,
-                             privacy_enforced, budget_enforced, success, error
+                             privacy_enforced, budget_enforced, success, error,
+                             prefill_ms, decode_ms, load_ms,
                          ))
             conn.commit()
 
@@ -197,9 +252,9 @@ class CallLogger:
         Total cloud spend this month.
         Used by budget enforcement in the router.
         """
-        month_start = (datetime.utcnow()
-                       .replace(day=1, hour=0, minute=0, second=0)
-                       .isoformat())
+        month_start = (datetime.now(UTC)
+               .replace(day=1, hour=0, minute=0, second=0)
+               .isoformat())
         with sqlite3.connect(self.db_path) as conn:
             result = conn.execute("""
                                   SELECT COALESCE(SUM(estimated_cost_usd), 0)
@@ -258,3 +313,64 @@ class CallLogger:
                         max(overall_dict["total_calls"], 1) * 100
                 ),
             }
+
+    def log_deliberation(self, deliberation_id: str, phase: str,
+                         model_name: str, vote_or_action: str,
+                         reasoning: str, confidence: float = 0.0,
+                         iteration: int = 1, approved: Optional[bool] = None,
+                         feedback: Optional[str] = None,
+                         total_latency_ms: float = 0.0,
+                         prompt_preview: str = ""):
+        """
+        Log a single step in the council deliberation process.
+
+        PHASES:
+        - 'routing_vote'   → Model voting on edge vs cloud
+        - 'model_selection' → Model voting on which local model answers
+        - 'answer_review'   → Model reviewing generated answer
+        - 'final_decision'  → The outcome
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""
+                         INSERT INTO council_deliberations
+                         (deliberation_id, timestamp, phase, model_name,
+                          vote_or_action, reasoning, confidence, iteration,
+                          approved, feedback, total_latency_ms, prompt_preview)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         """, (
+                             deliberation_id,
+                             datetime.now(UTC).isoformat(),
+                             phase, model_name, vote_or_action, reasoning,
+                             confidence, iteration, approved, feedback,
+                             total_latency_ms,
+                             prompt_preview[:200]
+                         ))
+            conn.commit()
+
+    def get_deliberation_stats(self) -> Dict:
+        """Stats about council deliberations for the dashboard."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+
+            stats = conn.execute("""
+                                 SELECT COUNT(DISTINCT deliberation_id)        as total_deliberations,
+                                        AVG(CASE
+                                                WHEN phase = 'final_decision'
+                                                    THEN total_latency_ms END) as avg_deliberation_ms,
+                                        SUM(CASE
+                                                WHEN vote_or_action = 'edge'
+                                                    AND phase = 'routing_vote' THEN 1
+                                                ELSE 0 END)
+                                                                               as edge_votes,
+                                        SUM(CASE
+                                                WHEN vote_or_action = 'cloud'
+                                                    AND phase = 'routing_vote' THEN 1
+                                                ELSE 0 END)
+                                                                               as cloud_votes,
+                                        AVG(CASE
+                                                WHEN phase = 'final_decision'
+                                                    THEN iteration END)        as avg_iterations
+                                 FROM council_deliberations
+                                 """).fetchone()
+
+            return dict(stats) if stats else {}

@@ -32,22 +32,120 @@ class ModelResult:
     """
     Uniform result from ANY model call.
 
-    WHY A UNIFORM RESULT?
-    Whether you called Ollama locally or Gemini in the cloud,
-    you get back this same structure. This makes logging,
-    benchmarking, and routing all work the same way.
-    No special cases, no "if cloud do X, if local do Y."
+    TIMING FIELDS EXPLAINED:
+    - latency_ms: Total wall-clock time measured from Python
+      (includes network overhead, Ollama processing, etc.)
+    - prefill_ms: Time the model spent processing the INPUT prompt.
+      This is "reading comprehension" speed. Measured by Ollama internally.
+    - decode_ms: Time the model spent GENERATING output tokens.
+      This is "writing" speed. Measured by Ollama internally.
+    - load_ms: Time spent loading the model into RAM.
+      On first call or after model swap, this can be several seconds.
+
+    WHY SEPARATE PREFILL AND DECODE?
+    In LLM inference, there are two distinct phases:
+    1. PREFILL (also called "prompt processing" or "encoding"):
+       The model reads and processes all input tokens at once.
+       This is heavily parallelizable and benefits from GPU bandwidth.
+    2. DECODE (also called "generation" or "autoregressive"):
+       The model generates output tokens one at a time.
+       Each token depends on all previous tokens, so it's sequential.
+
+    These have very different performance characteristics:
+    - Prefill is bandwidth-bound (how fast can you read?)
+    - Decode is latency-bound (how fast can you write one token?)
+
+    At AMD, this distinction matters because their MI300X has
+    different advantages for prefill vs decode workloads.
+    Showing you understand this in your dashboard is a strong signal.
     """
-    text: str  # The model's response
-    model_name: str  # e.g., "ollama/mistral"
-    tier: str  # "edge" or "cloud"
-    latency_ms: float  # How long the call took
-    prompt_tokens: Optional[int] = None  # Tokens in your prompt
-    completion_tokens: Optional[int] = None  # Tokens in the response
-    total_tokens: Optional[int] = None  # Sum of both
-    raw_response: Optional[Dict[str, Any]] = None  # Full API response
-    success: bool = True  # Did the call succeed?
-    error: Optional[str] = None  # Error message if it failed
+    text: str
+    model_name: str
+    tier: str
+    latency_ms: float
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
+    raw_response: Optional[Dict[str, Any]] = None
+    success: bool = True
+    error: Optional[str] = None
+    # NEW: Detailed inference timing from Ollama
+    prefill_ms: Optional[float] = None
+    decode_ms: Optional[float] = None
+    load_ms: Optional[float] = None
+
+
+
+@dataclass
+class ModelProfile:
+    """
+    Describes a model's strengths and characteristics.
+    The council uses this to decide which model should answer.
+
+    WHY THIS EXISTS:
+    When 5 models vote on who should answer, they need to know
+    each other's strengths. This is like a team where each member
+    knows what the others are good at.
+    """
+    name: str
+    tier: str
+    strengths: str
+    weaknesses: str
+    ram_gb: float
+    speed: str  # "fast", "medium", "slow"
+
+
+# Model profiles for council deliberation
+MODEL_PROFILES = {
+    "ollama/gpt-oss-20b": ModelProfile(
+        name="gpt-oss-20b",
+        tier="edge",
+        strengths="Strongest reasoning, chain-of-thought, tool calling, "
+                  "complex multi-step analysis. OpenAI's MoE architecture.",
+        weaknesses="Very large (13GB), slow to load, monopolizes RAM. "
+                   "Cannot run alongside other models on 16GB.",
+        ram_gb=14.0,
+        speed="slow",
+    ),
+    "ollama/llama3.1-8b": ModelProfile(
+        name="llama3.1-8b",
+        tier="edge",
+        strengths="Strong instruction following, balanced quality and speed, "
+                  "good at structured output, reliable all-rounder.",
+        weaknesses="Not specialized — decent at everything, best at nothing.",
+        ram_gb=6.0,
+        speed="medium",
+    ),
+    "ollama/deepseek-r1-8b": ModelProfile(
+        name="deepseek-r1-8b",
+        tier="edge",
+        strengths="Excellent step-by-step reasoning, analytical thinking, "
+                  "good at math and logic problems.",
+        weaknesses="Can be verbose in reasoning chains, slower due to "
+                   "chain-of-thought process.",
+        ram_gb=6.0,
+        speed="medium",
+    ),
+    "ollama/qwen3-8b": ModelProfile(
+        name="qwen3-8b",
+        tier="edge",
+        strengths="Strong multilingual capabilities, good general knowledge, "
+                  "solid instruction following, fast responses.",
+        weaknesses="Less specialized than domain-specific models.",
+        ram_gb=6.0,
+        speed="fast",
+    ),
+    "ollama/deepseek-coder-6.7b": ModelProfile(
+        name="deepseek-coder-6.7b",
+        tier="edge",
+        strengths="Specialized for code generation, review, debugging. "
+                  "Smallest model — fastest to load and respond.",
+        weaknesses="Weaker on non-code tasks. Smaller parameter count "
+                   "means less general knowledge.",
+        ram_gb=4.5,
+        speed="fast",
+    ),
+}
 
 
 class BaseModelClient(ABC):
@@ -155,6 +253,20 @@ class OllamaClient(BaseModelClient):
             # Calculate how long the call took
             latency_ms = (time.time() - start_time) * 1000
 
+            # Extract Ollama's internal timing (in nanoseconds)
+            # These are much more accurate than our Python-side timing
+            # because they measure the actual model computation,
+            # not including HTTP overhead.
+            prefill_ns = data.get("prompt_eval_duration", 0)
+            decode_ns = data.get("eval_duration", 0)
+            load_ns = data.get("load_duration", 0)
+
+            # Convert nanoseconds to milliseconds
+            # 1 millisecond = 1,000,000 nanoseconds
+            prefill_ms = prefill_ns / 1_000_000 if prefill_ns else None
+            decode_ms = decode_ns / 1_000_000 if decode_ns else None
+            load_ms = load_ns / 1_000_000 if load_ns else None
+
             return ModelResult(
                 text=data.get("response", ""),
                 model_name=self.model_name,
@@ -163,12 +275,16 @@ class OllamaClient(BaseModelClient):
                 prompt_tokens=data.get("prompt_eval_count"),
                 completion_tokens=data.get("eval_count"),
                 total_tokens=(
-                        data.get("prompt_eval_count", 0) +
-                        data.get("eval_count", 0)
+                        data.get("prompt_eval_count", 0)
+                        + data.get("eval_count", 0)
                 ),
                 raw_response=data,
                 success=True,
+                prefill_ms=prefill_ms,
+                decode_ms=decode_ms,
+                load_ms=load_ms,
             )
+
 
         except Exception as e:
             # If anything goes wrong, return a failed result
@@ -303,33 +419,81 @@ def get_available_models() -> Dict[str, BaseModelClient]:
     """
     Return all configured model clients.
 
-    This is the MODEL REGISTRY — a central place where all available
-    models are instantiated. The router queries this to know what
-    models it can use.
+    MODEL INVENTORY (as of your Ollama setup):
+
+    EDGE (Local, $0.00):
+      - gpt-oss:20b         → OpenAI's MoE model, strongest local reasoning,
+                               but uses ~14GB RAM so it monopolizes your M1 Pro.
+                               Has chain-of-thought and tool-calling built in.
+      - llama3.1:8b          → Meta's instruction-tuned model, solid all-rounder.
+      - deepseek-r1:8b       → Excellent at step-by-step reasoning, good for
+                               analytical tasks.
+      - qwen3:8b             → Alibaba's model, strong multilingual + general.
+      - deepseek-coder:6.7b  → Specialized for code tasks, smaller and faster.
+
+    CLOUD (Gemini API, per-token pricing):
+      - gemini-2.5-flash      → Fast, cost-effective standard model.
+      - gemini-2.5-flash-lite → Economy tier for high-volume tasks.
+      - gemini-2.5-pro        → Premium reasoning and analysis.
+      - gemini-3-pro-preview  → Cutting-edge frontier model.
     """
     models = {}
 
-    # Edge models (available if Ollama is running)
-    models["ollama/llama3.1-8b"] = OllamaClient(model="llama3.1:8b-instruct-q5_K_M")
+    # --- Edge models (local via Ollama) ---
+    # Note: On 16GB M1 Pro, gpt-oss:20b uses ~14GB alone.
+    # The 8B models use ~5-6GB each. Ollama swaps automatically.
+    models["ollama/gpt-oss-20b"] = OllamaClient(model="gpt-oss:20b")
+    models["ollama/llama3.1-8b"] = OllamaClient(
+        model="llama3.1:8b-instruct-q5_K_M"
+    )
     models["ollama/deepseek-r1-8b"] = OllamaClient(model="deepseek-r1:8b")
+    models["ollama/qwen3-8b"] = OllamaClient(model="qwen3:8b")
+    models["ollama/deepseek-coder-6.7b"] = OllamaClient(
+        model="deepseek-coder:6.7b"
+    )
 
-    # Cloud models (only if API key is configured)
+    # --- Cloud models (only if API key is configured) ---
     gemini_key = os.getenv("GEMINI_API_KEY")
     if gemini_key:
         models["gemini/gemini-2.5-flash"] = GeminiClient(
             model="gemini-2.5-flash"
         )
-
         models["gemini/gemini-2.5-flash-lite"] = GeminiClient(
             model="gemini-2.5-flash-lite"
         )
-
         models["gemini/gemini-2.5-pro"] = GeminiClient(
             model="gemini-2.5-pro"
         )
-
         models["gemini/gemini-3-pro-preview"] = GeminiClient(
             model="gemini-3-pro-preview"
         )
 
     return models
+
+
+def get_edge_models() -> Dict[str, BaseModelClient]:
+    """
+    Return ONLY edge (local) model clients.
+    Used by the council — only local models participate in deliberation.
+
+    WHY A SEPARATE FUNCTION?
+    The council is made up exclusively of local models. We don't want
+    cloud models voting on whether to use cloud — that's a conflict
+    of interest (and would cost money just to vote).
+    """
+    all_models = get_available_models()
+    return {
+        name: client
+        for name, client in all_models.items()
+        if client.tier == "edge"
+    }
+
+
+def get_cloud_models() -> Dict[str, BaseModelClient]:
+    """Return ONLY cloud model clients."""
+    all_models = get_available_models()
+    return {
+        name: client
+        for name, client in all_models.items()
+        if client.tier == "cloud"
+    }

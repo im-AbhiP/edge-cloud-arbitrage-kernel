@@ -17,11 +17,10 @@ This is EXPLAINABLE AI GOVERNANCE.
 import os
 from typing import Optional
 from dotenv import load_dotenv
-
 from runtime.tasks import TaskMetadata, TaskType, DataSensitivity
-from runtime.models import BaseModelClient, ModelResult, get_available_models
-from runtime.prompts import PromptRegistry
+from runtime.models import ModelResult, get_available_models
 from runtime.logging_utils import CallLogger
+from council.deliberation import CouncilDeliberation
 
 load_dotenv()
 
@@ -52,188 +51,125 @@ class RoutingDecision:
 
 class ModelRouter:
     """
+    The Routing Engine — now powered by the Council of Local LLMs.
+    WHAT CHANGED: Previously, routing was rule-based (if complexity > X, use cloud). Now, the 5 local models VOTE on every routing decision.
+    The old rule-based logic is kept as a FAST PATH for when you don't want full council deliberation (e.g., during benchmarking).
+    TWO MODES:
+        council_mode=True → Full council deliberation (slower, smarter)
+        council_mode=False → Original rule-based routing (fast, simple)
     Decides which model handles each task based on explicit policies.
 
-    DECISION HIERARCHY (order matters!):
+    OLD DECISION HIERARCHY (order matters!):
     1. Forced model override → use that exact model
     2. Privacy check → HIGH sensitivity ALWAYS goes edge
     3. Privacy mode → edge_only mode forces everything local
     4. Budget check → over hard limit forces edge
     5. Task-based routing → match task to model capabilities
+
+    Routes tasks using either council deliberation or fast rules.
     """
 
     # Default model for each scenario
     EDGE_DEFAULT = "ollama/llama3.1-8b"
-    EDGE_FAST = "ollama/deepseek-r1-8b"
+    EDGE_REASONING = "ollama/deepseek-r1-8b"
+    EDGE_CODE = "ollama/deepseek-coder-6.7b"
+    EDGE_FAST = "ollama/qwen3-8b"
+    EDGE_HEAVY = "ollama/gpt-oss-20b"
     CLOUD_DEFAULT = "gemini/gemini-2.5-flash"
     CLOUD_BUDGET = "gemini/gemini-2.5-flash-lite"
     CLOUD_PREMIUM = "gemini/gemini-2.5-pro"
     CLOUD_LUXURY = "gemini/gemini-3-pro-preview"
 
-    def __init__(self):
+    def __init__(self, council_mode: bool = True):
+        """
+        Parameters:
+        - council_mode: If True, uses the council for every routing
+          decision. If False, uses fast rule-based routing.
+        """
         self.models = get_available_models()
         self.logger = CallLogger()
-        self.prompt_registry = PromptRegistry()
-
-        # Load policy configuration from environment variables
+        self.council_mode = council_mode
         self.privacy_mode = os.getenv("PRIVACY_MODE", "hybrid")
         self.soft_budget = float(os.getenv("SOFT_BUDGET_USD", "1.00"))
         self.hard_budget = float(os.getenv("HARD_BUDGET_USD", "5.00"))
 
-    def select_model(self, meta: TaskMetadata) -> RoutingDecision:
-        """
-        Core routing logic. Returns which model to use and WHY.
-        """
-
-        # --- RULE 1: Explicit override ---
-        if meta.force_model and meta.force_model in self.models:
-            return RoutingDecision(
-                meta.force_model, "Explicit model override"
-            )
-
-        # --- RULE 2: Privacy enforcement (NON-NEGOTIABLE) ---
-        if meta.data_sensitivity == DataSensitivity.HIGH:
-            return RoutingDecision(
-                self.EDGE_DEFAULT,
-                "HIGH data sensitivity — forced to edge",
-                privacy_enforced=True
-            )
-
-        # --- RULE 3: Global privacy mode ---
-        if self.privacy_mode == "edge_only":
-            return RoutingDecision(
-                self.EDGE_DEFAULT,
-                "Privacy mode is edge_only — all tasks run locally",
-                privacy_enforced=True
-            )
-
-        # --- RULE 4: Budget enforcement ---
-        mtd_cost = self.logger.get_month_to_date_cost()
-
-        if mtd_cost >= self.hard_budget:
-            return RoutingDecision(
-                self.EDGE_DEFAULT,
-                f"Hard budget exceeded (${mtd_cost:.4f} >= "
-                f"${self.hard_budget})",
-                budget_enforced=True
-            )
-
-        if mtd_cost >= self.soft_budget:
-            if meta.importance > 0.8:
-                return RoutingDecision(
-                    self.CLOUD_DEFAULT,
-                    "Soft budget exceeded but high-importance task "
-                    "— using cheaper cloud model"
-                )
-            return RoutingDecision(
-                self.EDGE_DEFAULT,
-                f"Soft budget exceeded (${mtd_cost:.4f} >= "
-                f"${self.soft_budget}) — routing to edge",
-                budget_enforced=True
-            )
-
-        # --- RULE 5: Task-based routing ---
-
-        # Simple tasks → local (save money)
-        if meta.task_type in [TaskType.QUICK_QA, TaskType.SIMPLE_SUMMARY]:
-            if meta.budget_sensitivity > 0.5:
-                return RoutingDecision(
-                    self.EDGE_FAST,
-                    "Simple task + cost-conscious → fast local model"
-                )
-            return RoutingDecision(
-                self.EDGE_DEFAULT, "Simple task → local model"
-            )
-
-        # Complex tasks → cloud
-        if meta.task_type in [TaskType.DEEP_RESEARCH, TaskType.PLANNING]:
-            if meta.complexity > 0.7 and meta.importance > 0.7:
-                return RoutingDecision(
-                    self.CLOUD_PREMIUM,
-                    "Complex + important → premium cloud model"
-                )
-            if meta.complexity > 0.5:
-                return RoutingDecision(
-                    self.CLOUD_DEFAULT,
-                    "Moderately complex → standard cloud model"
-                )
-
-        # Code review — cloud is usually better
-        if meta.task_type == TaskType.CODE_REVIEW:
-            if meta.importance > 0.6:
-                return RoutingDecision(
-                    self.CLOUD_DEFAULT,
-                    "Code review with moderate+ importance → cloud"
-                )
-            return RoutingDecision(
-                self.EDGE_DEFAULT, "Low-importance code review → local"
-            )
-
-        # Default: prefer edge to save costs
-        return RoutingDecision(
-            self.EDGE_DEFAULT, "Default policy → edge to minimize cost"
-        )
+        if council_mode:
+            self.council = CouncilDeliberation()
 
     def run(self, prompt: str, meta: TaskMetadata,
             system_prompt: Optional[str] = None,
-            max_tokens: int = 1024,
+            max_tokens: int = 2048,
             temperature: float = 0.7) -> ModelResult:
         """
-        Execute a task: select model → call it → log everything →
-        handle failures.
+        Execute a task. In council mode, this triggers full deliberation.
+        In fast mode, this uses rule-based routing.
         """
 
-        # Step 1: Decide which model
-        decision = self.select_model(meta)
-        print(f"[Router] {decision}")
+        if self.council_mode:
+            return self._run_council(prompt, meta)
+        else:
+            return self._run_fast(prompt, meta, system_prompt,
+                                  max_tokens, temperature)
 
-        # Step 2: Get the model client
-        client = self.models.get(decision.model_name)
-        if client is None:
-            # Fallback to any available edge model
-            for name, c in self.models.items():
-                if c.tier == "edge":
-                    client = c
-                    decision = RoutingDecision(
-                        name, "Fallback — requested model unavailable"
-                    )
-                    break
+    def _run_council(self, prompt: str,
+                     meta: TaskMetadata) -> ModelResult:
+        """Route via council deliberation."""
+        meta.user_prompt = prompt
+        result = self.council.deliberate(prompt, meta)
 
-        if client is None:
-            raise RuntimeError("No models available")
-
-        # Step 3: Make the actual API call
-        result = client.call(
-            prompt, system_prompt=system_prompt,
-            max_tokens=max_tokens, temperature=temperature
+        # Wrap deliberation result as a ModelResult for compatibility
+        return ModelResult(
+            text=result.final_answer,
+            model_name=result.selected_model,
+            tier="edge" if result.routing_decision == "local" else "cloud",
+            latency_ms=result.total_deliberation_ms,
+            success=True,
         )
 
-        # Step 4: If cloud failed, try edge as fallback
-        if not result.success and result.tier == "cloud":
-            print(f"[Router] Cloud failed ({result.error}), "
-                  f"falling back to edge")
-            edge_client = self.models.get(self.EDGE_DEFAULT)
-            if edge_client:
-                result = edge_client.call(
-                    prompt, system_prompt=system_prompt,
-                    max_tokens=max_tokens, temperature=temperature
-                )
-                decision = RoutingDecision(
-                    self.EDGE_DEFAULT, "Fallback after cloud failure"
-                )
+    def _run_fast(self, prompt: str, meta: TaskMetadata,
+                  system_prompt: Optional[str] = None,
+                  max_tokens: int = 2048,
+                  temperature: float = 0.7) -> ModelResult:
+        """
+        Original rule-based routing (kept for benchmarking
+        and when speed > deliberation quality).
+        """
+        # Privacy enforcement
+        if meta.data_sensitivity == DataSensitivity.HIGH:
+            model_id = self.EDGE_DEFAULT
+        elif self.privacy_mode == "edge_only":
+            model_id = self.EDGE_DEFAULT
+        # Budget enforcement
+        elif self.logger.get_month_to_date_cost() >= self.hard_budget:
+            model_id = self.EDGE_DEFAULT
+        # Task-based routing
+        elif meta.task_type in [TaskType.QUICK_QA, TaskType.SIMPLE_SUMMARY]:
+            model_id = self.EDGE_FAST
+        elif meta.task_type == TaskType.CODE_REVIEW:
+            model_id = self.EDGE_CODE
+        elif meta.task_type in [TaskType.DEEP_RESEARCH, TaskType.PLANNING]:
+            if meta.complexity > 0.7:
+                model_id = self.CLOUD_PREMIUM
+            else:
+                model_id = self.CLOUD_DEFAULT
+        else:
+            model_id = self.EDGE_DEFAULT
 
-        # Step 5: Log everything
+        client = self.models.get(model_id)
+        if client is None:
+            client = list(self.models.values())[0]
+            model_id = list(self.models.keys())[0]
+
+        result = client.call(prompt, system_prompt=system_prompt,
+                             max_tokens=max_tokens, temperature=temperature)
+
         self.logger.log(
-            model_name=result.model_name,
-            tier=result.tier,
-            task_type=meta.task_type.value,
-            latency_ms=result.latency_ms,
+            model_name=result.model_name, tier=result.tier,
+            task_type=meta.task_type.value, latency_ms=result.latency_ms,
             prompt_tokens=result.prompt_tokens or 0,
             completion_tokens=result.completion_tokens or 0,
-            success=result.success,
-            error=result.error,
-            privacy_enforced=decision.privacy_enforced,
-            budget_enforced=decision.budget_enforced,
+            success=result.success, error=result.error,
         )
 
         return result
+

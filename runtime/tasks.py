@@ -96,6 +96,10 @@ class TaskMetadata:
     # Optional: max budget for this specific task
     task_budget_cap_usd: Optional[float] = None
 
+    # NEW: The actual user prompt text. The council needs to see this
+    # to make an informed routing decision.
+    user_prompt: Optional[str] = None
+
     def __post_init__(self):
         """
         Validate that all float values are in range.

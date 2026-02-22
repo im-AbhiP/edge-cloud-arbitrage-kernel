@@ -64,12 +64,12 @@ User Task
 TaskMetadata (type, complexity, sensitivity, importance)
     ↓
 ┌──────────────────────────────────────┐
-│            ROUTING ENGINE           │
-│  ┌───────────┐      ┌──────────────┐│
-│  │ Privacy   │      │   Budget     ││
-│  │  Policy   │      │   Policy     ││
-│  └─────┬─────┘      └──────┬───────┘│
-│        └──────────────┬─────────────┘│
+│            ROUTING ENGINE            │
+│  ┌───────────┐      ┌──────────────┐ │
+│  │ Privacy   │      │   Budget     │ │
+│  │  Policy   │      │   Policy     │ │
+│  └─────┬─────┘      └──────┬───────┘ │
+│        └─────────┬─────────┘         │
 │          Task-Based Routing          │
 │        (complexity × importance)     │
 └──────────┬───────────┬───────────────┘
@@ -80,7 +80,8 @@ TaskMetadata (type, complexity, sensitivity, importance)
       │ Llama 3.1  │   │ 2.5 Flash / Pro    │
       │ DeepSeek R1│   │ 3.0 Pro Preview    │
       └─────┬──────┘   └────────┬───────────┘
-            ↓                   ↓
+            |    |──────────────|
+            ↓    ↓
       ┌───────────────────┐
       │   LOGGING LAYER   │
       │ SQLite + Cost     │

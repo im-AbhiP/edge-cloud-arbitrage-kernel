@@ -6,4 +6,5 @@ data/logs/*
 *.db
 .DS_Store
 .idea/
-benchmarking/reports/*.csv
+.pytest_cache/
+benchmarking/reports/*
